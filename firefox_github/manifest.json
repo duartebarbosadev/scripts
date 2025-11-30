@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub PR Comment Copy for AI",
+  "version": "0.1",
+  "description": "Adds a button to copy PR review comments + code snippet into an AI-friendly prompt.",
+  "permissions": [],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*/*/pull/*",
+        "https://github.com/*/*/pull/*/files"
+      ],
+      "js": [
+        "contentScript.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
