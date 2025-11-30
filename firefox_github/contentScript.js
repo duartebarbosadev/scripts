@@ -1,43 +1,70 @@
 (function () {
+  const shared = globalThis.prCopyShared;
+  if (!shared) {
+    console.warn("[PR-Copy] Shared helpers missing; content script aborted.");
+    return;
+  }
+
+  const { browserApi, DEFAULT_PROMPTS, createLogger, makeStorage, applyTemplate } = shared;
+  const { log, warn } = createLogger();
+  const storage = makeStorage(browserApi);
+
   const BUTTON_CLASS = "gh-ai-copy-button";
   const REVIEW_BUTTON_CLASS = "gh-ai-copy-review-button";
-  const LOG_PREFIX = "[PR-Copy]";
 
-  const log = (...args) => console.log(LOG_PREFIX, ...args);
-  const warn = (...args) => console.warn(LOG_PREFIX, ...args);
+  const promptTemplates = {
+    inline: DEFAULT_PROMPTS.inline,
+    review: DEFAULT_PROMPTS.review,
+  };
 
-  function createCopyButton() {
-    const btn = document.createElement("button");
-    btn.textContent = "Copy for AI";
-    btn.className = "btn btn-sm " + BUTTON_CLASS;
-    btn.style.marginLeft = "8px";
-    return btn;
+  async function loadTemplates() {
+    const result = await storage.get(["inlinePromptTemplate", "reviewPromptTemplate"]);
+    promptTemplates.inline = result.inlinePromptTemplate || DEFAULT_PROMPTS.inline;
+    promptTemplates.review = result.reviewPromptTemplate || DEFAULT_PROMPTS.review;
+    log("Prompt templates loaded");
   }
 
-  function createCopyReviewButton() {
-    const btn = document.createElement("button");
-    btn.textContent = "Copy review";
-    btn.className = "btn btn-sm " + REVIEW_BUTTON_CLASS;
-    btn.style.marginLeft = "8px";
-    return btn;
+  const storageApi = browserApi?.storage;
+  if (storageApi?.onChanged?.addListener) {
+    storageApi.onChanged.addListener((changes, area) => {
+      if (area !== "local") return;
+      if (changes.inlinePromptTemplate) {
+        promptTemplates.inline =
+          changes.inlinePromptTemplate.newValue || DEFAULT_PROMPTS.inline;
+        log("Inline prompt template updated from storage");
+      }
+      if (changes.reviewPromptTemplate) {
+        promptTemplates.review =
+          changes.reviewPromptTemplate.newValue || DEFAULT_PROMPTS.review;
+        log("Review prompt template updated from storage");
+      }
+    });
   }
 
-  function buildPrompt({ filePath, lineStart, lineEnd, commentText, codeText }) {
-    return (
-`An AI wrote this GitHub PR review. Fix it if you think it's correct and follows good practices. If not, or if you have questions, ask.
+  loadTemplates();
 
-File: ${filePath || "unknown file"}
-Lines: ${lineStart || "?"}–${lineEnd || "?"}
+  const createButton = (label, className) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.className = `btn btn-sm ${className}`;
+    btn.style.marginLeft = "8px";
+    return btn;
+  };
 
-Review comment:
-${commentText || "(no comment text found)"}
+  function buildInlinePrompt({ filePath, lineStart, lineEnd, commentText, codeText }) {
+    return applyTemplate(promptTemplates.inline, {
+      filePath: filePath || "unknown file",
+      lineStart: lineStart || "?",
+      lineEnd: lineEnd || lineStart || "?",
+      commentText: commentText || "(no comment text found)",
+      codeText: codeText || "// no code snippet found",
+    });
+  }
 
-Relevant code:
-\`\`\`
-${codeText || "// no code snippet found"}
-\`\`\`
-`
-    );
+  function buildReviewPrompt(reviewText) {
+    return applyTemplate(promptTemplates.review, {
+      reviewText: reviewText || "(no review text found)",
+    });
   }
 
   function extractDataFromThread(thread) {
@@ -68,7 +95,7 @@ ${codeText || "// no code snippet found"}
       );
     const diffTable = siblingDiffTable || timelineBody.querySelector("table.js-diff-table") || null;
 
-    let codeLines = [];
+    const codeLines = [];
     if (diffTable) {
       const codeSpans = diffTable.querySelectorAll(".blob-code-inner");
       codeSpans.forEach((span) => {
@@ -76,15 +103,34 @@ ${codeText || "// no code snippet found"}
       });
     }
 
-    const codeText = codeLines.join("\n");
-
     return {
       filePath,
       lineStart,
       lineEnd,
       commentText,
-      codeText,
+      codeText: codeLines.join("\n"),
     };
+  }
+
+  async function withCopyFeedback(button, action, labels = {}) {
+    const { success = "Copied!", errorText = "Copy failed" } = labels;
+    const original = button.textContent;
+    try {
+      await action();
+      button.textContent = success;
+      button.disabled = true;
+      setTimeout(() => {
+        button.textContent = original;
+        button.disabled = false;
+      }, 1500);
+    } catch (err) {
+      warn("Clipboard write failed", err);
+      button.textContent = errorText;
+      setTimeout(() => {
+        button.textContent = original;
+        button.disabled = false;
+      }, 2000);
+    }
   }
 
   async function handleCopyClick(thread, button) {
@@ -95,24 +141,9 @@ ${codeText || "// no code snippet found"}
       lineEnd: data.lineEnd,
       hasCode: Boolean(data.codeText),
     });
-    const prompt = buildPrompt(data);
 
-    try {
-      await navigator.clipboard.writeText(prompt);
-      const original = button.textContent;
-      button.textContent = "Copied!";
-      button.disabled = true;
-      setTimeout(() => {
-        button.textContent = original;
-        button.disabled = false;
-      }, 1500);
-    } catch (e) {
-      console.error(LOG_PREFIX, "Failed to copy PR snippet:", e);
-      button.textContent = "Copy failed";
-      setTimeout(() => {
-        button.textContent = "Copy for AI";
-      }, 2000);
-    }
+    const prompt = buildInlinePrompt(data);
+    await withCopyFeedback(button, () => navigator.clipboard.writeText(prompt));
   }
 
   function enhanceThread(thread) {
@@ -131,7 +162,7 @@ ${codeText || "// no code snippet found"}
       return;
     }
 
-    const button = createCopyButton();
+    const button = createButton("Copy for AI", BUTTON_CLASS);
     actionsBar.prepend(button);
 
     button.addEventListener("click", () => handleCopyClick(thread, button));
@@ -234,24 +265,10 @@ ${codeText || "// no code snippet found"}
       hiddenIds: hiddenIdsCount,
       hiddenFound: hiddenFoundCount,
     });
-    const reviewPrompt = `Full review:\n${commentText}`;
-
-    try {
-      await navigator.clipboard.writeText(reviewPrompt);
-      const original = button.textContent;
-      button.textContent = "Copied!";
-      button.disabled = true;
-      setTimeout(() => {
-        button.textContent = original;
-        button.disabled = false;
-      }, 1500);
-    } catch (e) {
-      console.error(LOG_PREFIX, "Failed to copy review text:", e);
-      button.textContent = "Copy failed";
-      setTimeout(() => {
-        button.textContent = "Copy review";
-      }, 2000);
-    }
+    const reviewPrompt = buildReviewPrompt(commentText);
+    await withCopyFeedback(button, () => navigator.clipboard.writeText(reviewPrompt), {
+      errorText: "Copy failed",
+    });
   }
 
   function enhanceReviewComment(commentBody) {
@@ -267,7 +284,7 @@ ${codeText || "// no code snippet found"}
       commentBody.closest(".timeline-comment-group")?.querySelector(".timeline-comment-actions");
     if (!actionsBar) return;
 
-    const button = createCopyReviewButton();
+    const button = createButton("Copy review", REVIEW_BUTTON_CLASS);
     actionsBar.prepend(button);
     container.dataset.aiCopyReviewButtonInjected = "true";
 
