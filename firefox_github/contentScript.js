@@ -85,8 +85,19 @@
     const lineStart = lineStartEl ? lineStartEl.textContent.trim() : null;
     const lineEnd = lineEndEl ? lineEndEl.textContent.trim() : null;
 
-    const commentBody = thread.querySelector(".comment-body.markdown-body.js-comment-body");
-    const commentText = commentBody ? commentBody.innerText.trim() : "";
+    let commentBody = thread.classList?.contains("js-comment-body")
+      ? thread
+      : thread.querySelector(".comment-body.markdown-body.js-comment-body");
+
+    let commentText = "";
+    if (commentBody) {
+      // Clone to avoid modifying the DOM
+      const clone = commentBody.cloneNode(true);
+      // Remove noise like the "Implement suggestion" button or other interactive elements
+      const buttons = clone.querySelectorAll("button, .react-partial, .js-complete-transition");
+      buttons.forEach((btn) => btn.remove());
+      commentText = clone.innerText.trim();
+    }
 
     const inlineContainer = thread.closest(".js-inline-comments-container");
     const siblingDiffTable =
@@ -113,8 +124,8 @@
   }
 
   async function withCopyFeedback(button, action, labels = {}) {
-    const { success = "Copied!", errorText = "Copy failed" } = labels;
-    const original = button.textContent;
+    const { success = "Copied!", errorText = "Copy failed", originalText } = labels;
+    const original = originalText || button.textContent;
     try {
       await action();
       button.textContent = success;
@@ -169,6 +180,10 @@
   }
 
   async function handleCopyReview(container, button) {
+    const originalLabel = button.textContent;
+    button.textContent = "Copying...";
+    button.disabled = true;
+
     const reviewGroup = container?.closest(".timeline-comment-group") || container;
     const reviewIdMatch = reviewGroup?.id?.match(/pullrequestreview-(\d+)/);
     const reviewId = reviewIdMatch ? reviewIdMatch[1] : null;
@@ -177,18 +192,29 @@
     let hiddenIdsCount = 0;
     let hiddenFoundCount = 0;
 
-    const collectBodies = (root) => {
-      const bodies = root?.querySelectorAll(
+    // Try to find the outermost wrapper for this review to capture all visible inline comments
+    let root = reviewGroup;
+    if (reviewId) {
+      const wrapper = document.getElementById(`pullrequestreview-${reviewId}`);
+      if (wrapper) root = wrapper;
+    }
+
+    const collectBodies = (node) => {
+      const bodies = node?.querySelectorAll(
         ".comment-body.markdown-body.js-comment-body"
       );
       if (!bodies || !bodies.length) return;
       bodies.forEach((el) => {
-        const text = el.innerText.trim();
-        if (text) collected.push(text);
+        const data = extractDataFromThread(el);
+        if (data.filePath) {
+          collected.push(buildInlinePrompt(data));
+        } else {
+          collected.push(data.commentText);
+        }
       });
     };
 
-    collectBodies(reviewGroup);
+    collectBodies(root);
     overviewBlocks = collected.length;
 
     // Collect inline comment bodies that belong to this review, using hidden comment ids list.
@@ -214,7 +240,10 @@
       ids.forEach((id) => {
         const node = document.getElementById(`discussion_r${id}`);
         if (node) {
-          collectBodies(node);
+          // Only collect if not already found in the root scan
+          if (!root.contains(node)) {
+            collectBodies(node);
+          }
         } else {
           missing.push(id);
         }
@@ -268,6 +297,7 @@
     const reviewPrompt = buildReviewPrompt(commentText);
     await withCopyFeedback(button, () => navigator.clipboard.writeText(reviewPrompt), {
       errorText: "Copy failed",
+      originalText: originalLabel,
     });
   }
 

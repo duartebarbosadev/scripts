@@ -18,8 +18,7 @@ Relevant code:
 {{codeText}}
 \`\`\`
 `,
-    review: `Full review:
-{{reviewText}}`,
+    review: `{{reviewText}}`,
   });
 
   const createLogger = (prefix = LOG_PREFIX) => ({

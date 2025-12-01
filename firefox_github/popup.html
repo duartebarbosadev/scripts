@@ -1,178 +1,202 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>PR Copy for AI</title>
-    <style>
-      :root {
-        --bg: linear-gradient(145deg, #0f172a, #0b1020);
-        --card: #0f172a;
-        --muted: #94a3b8;
-        --primary: #22d3ee;
-        --primary-2: #38bdf8;
-        --border: rgba(148, 163, 184, 0.2);
-        --text: #e2e8f0;
-        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-        --sans: "SF Pro Display", "Segoe UI", "Helvetica Neue", sans-serif;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        font-family: var(--sans);
-        color: var(--text);
-        background: var(--bg);
-        min-width: 360px;
-      }
-      .wrap {
-        padding: 14px 14px 16px;
-      }
-      .card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 14px;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-      }
-      .header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 10px;
-      }
-      .title {
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: 0.01em;
-      }
-      .tag {
-        background: rgba(34, 211, 238, 0.12);
-        color: #a5f3fc;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 11px;
-        border: 1px solid rgba(34, 211, 238, 0.3);
-      }
-      label {
-        display: block;
-        font-size: 12px;
-        font-weight: 600;
-        color: #cbd5e1;
-        margin-bottom: 6px;
-      }
-      textarea {
-        width: 100%;
-        min-height: 120px;
-        background: #0b1224;
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        border-radius: 10px;
-        color: var(--text);
-        padding: 10px 12px;
-        font-family: var(--mono);
-        font-size: 12px;
-        resize: vertical;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
-      }
-      textarea:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
-      }
-      .field {
-        margin-bottom: 12px;
-      }
-      .hint {
-        font-size: 11px;
-        color: var(--muted);
-        margin-top: 6px;
-      }
-      .actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 10px;
-      }
-      button {
-        flex: 1;
-        border: none;
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-weight: 700;
-        cursor: pointer;
-        background: rgba(148, 163, 184, 0.14);
-        color: var(--text);
-        transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.15s ease;
-      }
-      button.primary {
-        background: linear-gradient(135deg, var(--primary), var(--primary-2));
-        color: #0b1021;
-        box-shadow: 0 10px 24px rgba(34, 211, 238, 0.35);
-      }
-      button:hover {
-        transform: translateY(-1px);
-      }
-      button:active {
-        transform: translateY(0px) scale(0.99);
-      }
-      button:disabled {
-        opacity: 0.6;
-        cursor: default;
-        transform: none;
-      }
-      .status {
-        margin-top: 8px;
-        min-height: 16px;
-        font-size: 12px;
-        color: #a5f3fc;
-      }
-      .pill-row {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin: 8px 0 2px;
-      }
-      .pill {
-        background: rgba(148, 163, 184, 0.16);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        color: #e2e8f0;
-        padding: 4px 8px;
-        border-radius: 8px;
-        font-size: 11px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="card">
-        <div class="header">
-          <div class="title">PR Copy for AI</div>
-          <div class="tag">Templates</div>
-        </div>
-        <div class="field">
-          <label for="inlinePrompt">Inline comment prompt</label>
-          <textarea id="inlinePrompt"></textarea>
-        </div>
-        <div class="field">
-          <label for="reviewPrompt">Full review prompt</label>
-          <textarea id="reviewPrompt"></textarea>
-        </div>
-        <div class="hint">Placeholders:</div>
-        <div class="pill-row">
-          <div class="pill">{{filePath}}</div>
-          <div class="pill">{{lineStart}}</div>
-          <div class="pill">{{lineEnd}}</div>
-          <div class="pill">{{commentText}}</div>
-          <div class="pill">{{codeText}}</div>
-          <div class="pill">{{reviewText}}</div>
-        </div>
-        <div class="actions">
-          <button class="primary" id="saveBtn">Save</button>
-          <button id="resetBtn">Reset</button>
-        </div>
-        <div class="status" id="status" aria-live="polite"></div>
+
+<head>
+  <meta charset="utf-8" />
+  <title>PR Copy for AI</title>
+  <style>
+    :root {
+      --bg: linear-gradient(145deg, #0f172a, #0b1020);
+      --card: #0f172a;
+      --muted: #94a3b8;
+      --primary: #22d3ee;
+      --primary-2: #38bdf8;
+      --border: rgba(148, 163, 184, 0.2);
+      --text: #e2e8f0;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: "SF Pro Display", "Segoe UI", "Helvetica Neue", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background: var(--bg);
+      min-width: 360px;
+    }
+
+    .wrap {
+      padding: 14px 14px 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .tag {
+      background: rgba(34, 211, 238, 0.12);
+      color: #a5f3fc;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid rgba(34, 211, 238, 0.3);
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      background: #0b1224;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      resize: vertical;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    button {
+      flex: 1;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--text);
+      transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.15s ease;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color: #0b1021;
+      box-shadow: 0 10px 24px rgba(34, 211, 238, 0.35);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0px) scale(0.99);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+      transform: none;
+    }
+
+    .status {
+      margin-top: 8px;
+      min-height: 16px;
+      font-size: 12px;
+      color: #a5f3fc;
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 8px 0 2px;
+    }
+
+    .pill {
+      background: rgba(148, 163, 184, 0.16);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #e2e8f0;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div class="title">PR Copy for AI</div>
+        <div class="tag">Templates</div>
       </div>
+      <div class="field">
+        <label for="inlinePrompt">Inline comment prompt</label>
+        <textarea id="inlinePrompt"></textarea>
+      </div>
+      <div class="field">
+        <label for="reviewPrompt">Full review prompt</label>
+        <textarea id="reviewPrompt"></textarea>
+      </div>
+      <div class="hint">Placeholders:</div>
+      <div class="pill-row">
+        <div class="pill">{{filePath}}</div>
+        <div class="pill">{{lineStart}}</div>
+        <div class="pill">{{lineEnd}}</div>
+        <div class="pill">{{commentText}}</div>
+        <div class="pill">{{codeText}}</div>
+        <div class="pill">{{reviewText}}</div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="saveBtn">Save</button>
+        <button id="resetBtn">Reset to Defaults</button>
+      </div>
+      <div class="status" id="status" aria-live="polite"></div>
     </div>
-    <script src="shared.js"></script>
-    <script src="popup.js"></script>
-  </body>
+  </div>
+  <script src="shared.js"></script>
+  <script src="popup.js"></script>
+</body>
+
 </html>
