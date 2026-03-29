@@ -2,6 +2,11 @@
 
 # Script to recursively remove all empty folders inside a provided path
 # Usage: ./remove_empty_folders.sh <path>
+# Example:
+#   ./remove_empty_folders.sh ./projects
+# Expected result:
+#   Lists all empty folders found under ./projects, asks for confirmation,
+#   then deletes those empty folders when you answer "y".
 
 set -e
 

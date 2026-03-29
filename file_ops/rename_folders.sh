@@ -2,6 +2,11 @@
 
 # Script to recursively find folders with a certain name and rename them
 # Usage: ./rename_folders.sh <path> <old_name> <new_name>
+# Example:
+#   ./rename_folders.sh ./projects draft final
+# Expected result:
+#   Lists every folder named "draft" under ./projects, asks for confirmation,
+#   then renames each one to "final" unless a target folder already exists.
 
 set -e
 
